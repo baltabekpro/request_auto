@@ -764,43 +764,22 @@
         const phoneBlock = document.createElement('div');
         phoneBlock.id = 'phone-numbers-block';
         phoneBlock.style.cssText = `
-            margin-top: 10px;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            background-color: #f9f9f9;
-            font-size: 12px;
-            max-width: 100%;
+            margin-left: 8px;
+            display: inline-block;
+            vertical-align: middle;
         `;
         
-        // Создаем заголовок
-        const title = document.createElement('div');
-        title.textContent = '📱 Найденные номера телефонов:';
-        title.style.cssText = `
-            font-weight: bold;
-            margin-bottom: 5px;
-            color: #333;
-        `;
-        phoneBlock.appendChild(title);
-        
-        // Создаем контейнер для номеров
+        // Создаем контейнер для номеров (компактное горизонтальное расположение)
         const numbersContainer = document.createElement('div');
         numbersContainer.style.cssText = `
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            align-items: center;
         `;
         
-        // Добавляем каждый номер как строку с номером и кнопкой "Исправить"
+        // Добавляем каждый номер как компактный кликабельный элемент
         phoneNumbers.forEach((phone, index) => {
-            const phoneRow = document.createElement('div');
-            phoneRow.style.cssText = `
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                padding: 3px 0;
-            `;
-            
             // Создаем элемент с номером (кликабельный для копирования)
             const phoneElement = document.createElement('span');
             phoneElement.textContent = phone;
@@ -808,14 +787,13 @@
                 background-color: #e8f4fd;
                 border: 1px solid #0066cc;
                 border-radius: 3px;
-                padding: 4px 8px;
+                padding: 2px 6px;
                 cursor: pointer;
                 color: #0066cc;
                 font-family: monospace;
+                font-size: 11px;
                 white-space: nowrap;
                 transition: all 0.2s;
-                flex: 1;
-                min-width: 120px;
             `;
             
             // Добавляем hover эффект для номера
@@ -850,162 +828,15 @@
             // Добавляем tooltip для номера
             phoneElement.title = 'Нажмите, чтобы скопировать номер без пробелов';
             
-            // Создаем кнопку "Исправить" для каждого номера
-            const correctPhoneButton = document.createElement('button');
-            correctPhoneButton.textContent = 'Исправить';
-            correctPhoneButton.style.cssText = `
-                background-color: #ff9800;
-                color: white;
-                border: none;
-                border-radius: 3px;
-                padding: 4px 8px;
-                cursor: pointer;
-                font-size: 11px;
-                white-space: nowrap;
-                transition: background-color 0.2s;
-            `;
-            
-            // Добавляем hover эффект для кнопки исправления
-            correctPhoneButton.addEventListener('mouseenter', function() {
-                this.style.backgroundColor = '#f57c00';
-            });
-            
-            correctPhoneButton.addEventListener('mouseleave', function() {
-                this.style.backgroundColor = '#ff9800';
-            });
-            
-            // Добавляем обработчик клика для исправления номера в тексте
-            correctPhoneButton.addEventListener('click', function() {
-                correctPhoneInText(phone);
-            });
-            
-            correctPhoneButton.title = 'Исправить все неправильные форматы этого номера в тексте';
-            
-            // Добавляем номер и кнопку в строку
-            phoneRow.appendChild(phoneElement);
-            phoneRow.appendChild(correctPhoneButton);
-            
-            numbersContainer.appendChild(phoneRow);
+            numbersContainer.appendChild(phoneElement);
         });
         
         phoneBlock.appendChild(numbersContainer);
         
-        // Вставляем блок после кнопки исправления
+        // Вставляем блок рядом с кнопкой исправления (в той же строке)
         correctButton.parentNode.insertBefore(phoneBlock, correctButton.nextSibling);
         
         console.log('Content: Отображено номеров телефонов:', phoneNumbers.length);
-    }
-    
-    // Функция для исправления конкретного номера в тексте
-    function correctPhoneInText(normalizedPhone) {
-        console.log('Исправление номера в тексте:', normalizedPhone);
-        
-        // Получаем текст из активного элемента
-        const currentText = getAllTextFromActiveElement();
-        if (!currentText) {
-            showNotification('❌ Не найден текст для исправления', 'error');
-            return;
-        }
-        
-        // Убираем пробелы из нормализованного номера для поиска
-        const normalizedDigits = normalizedPhone.replace(/\s/g, '');
-        
-        // Создаем различные варианты как может быть записан этот номер
-        const phoneVariants = generatePhoneVariants(normalizedDigits);
-        
-        let correctedText = currentText;
-        let correctionsMade = 0;
-        
-        // Заменяем все найденные варианты на правильный формат
-        phoneVariants.forEach(variant => {
-            const regex = new RegExp(variant.pattern, 'gi');
-            const matches = correctedText.match(regex);
-            if (matches) {
-                correctionsMade += matches.length;
-                correctedText = correctedText.replace(regex, normalizedPhone);
-            }
-        });
-        
-        if (correctionsMade > 0) {
-            // Заменяем текст в активном элементе
-            const success = replaceAllTextInActiveElement(correctedText);
-            if (success) {
-                showNotification(`✅ Исправлено ${correctionsMade} вхождений номера ${normalizedPhone}`, 'success');
-            } else {
-                showNotification('❌ Не удалось заменить текст', 'error');
-            }
-        } else {
-            showNotification(`ℹ️ Неправильные форматы номера ${normalizedPhone} не найдены`, 'info');
-        }
-    }
-    
-    // Функция для генерации различных вариантов записи номера
-    function generatePhoneVariants(normalizedDigits) {
-        // normalizedDigits - это номер без пробелов, например "7007077777"
-        const variants = [];
-        
-        // Добавляем экранирование для регулярных выражений
-        const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        
-        // Формат: 7007077777
-        variants.push({
-            pattern: escapeRegex(normalizedDigits),
-            description: 'Без разделителей'
-        });
-        
-        // Формат: 87007077777 (с 8 в начале)
-        variants.push({
-            pattern: escapeRegex('8' + normalizedDigits),
-            description: 'С 8 в начале'
-        });
-        
-        // Формат: +77007077777
-        variants.push({
-            pattern: escapeRegex('+7' + normalizedDigits),
-            description: 'С +7'
-        });
-        
-        // Формат: 8 700 707 77 77 (с пробелами)
-        const withSpaces = '8\\s*' + normalizedDigits.substring(0,3) + '\\s*' + 
-                          normalizedDigits.substring(3,6) + '\\s*' + 
-                          normalizedDigits.substring(6,8) + '\\s*' + 
-                          normalizedDigits.substring(8,10);
-        variants.push({
-            pattern: withSpaces,
-            description: 'С пробелами и 8'
-        });
-        
-        // Формат: 7 700 707 77 77 (с пробелами)
-        const withSpaces7 = '7\\s*' + normalizedDigits.substring(0,3) + '\\s*' + 
-                           normalizedDigits.substring(3,6) + '\\s*' + 
-                           normalizedDigits.substring(6,8) + '\\s*' + 
-                           normalizedDigits.substring(8,10);
-        variants.push({
-            pattern: withSpaces7,
-            description: 'С пробелами и 7'
-        });
-        
-        // Формат: 8-700-707-77-77 (с дефисами)
-        const withDashes = '8\\-' + normalizedDigits.substring(0,3) + '\\-' + 
-                          normalizedDigits.substring(3,6) + '\\-' + 
-                          normalizedDigits.substring(6,8) + '\\-' + 
-                          normalizedDigits.substring(8,10);
-        variants.push({
-            pattern: withDashes,
-            description: 'С дефисами'
-        });
-        
-        // Формат: 8(700)707-77-77 (комбинированный)
-        const mixed = '8\\(' + normalizedDigits.substring(0,3) + '\\)' + 
-                     normalizedDigits.substring(3,6) + '\\-' + 
-                     normalizedDigits.substring(6,8) + '\\-' + 
-                     normalizedDigits.substring(8,10);
-        variants.push({
-            pattern: mixed,
-            description: 'Смешанный формат'
-        });
-        
-        return variants;
     }
     
     // Пытаемся добавить кнопку при загрузке
