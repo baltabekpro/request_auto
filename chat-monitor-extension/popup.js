@@ -1,6 +1,7 @@
 // Popup script для управления расширением
 class ChatMonitorPopup {
     constructor() {
+        this.configManager = new ConfigManager();
         this.settings = {
             enabled: true,
             notificationInterval: 20,
@@ -38,10 +39,11 @@ class ChatMonitorPopup {
                 this.settings = response.settings;
             }
             
-            // Загружаем API ключ из хранилища
-            const apiKeyData = await chrome.storage.sync.get(['apiKey']);
-            if (apiKeyData.apiKey) {
-                this.settings.apiKey = apiKeyData.apiKey;
+            // Загружаем API ключ через ConfigManager
+            const apiKey = await this.configManager.getApiKey();
+            if (apiKey) {
+                this.settings.apiKey = apiKey;
+                console.log('API ключ загружен через ConfigManager');
             }
         } catch (error) {
             console.error('Ошибка загрузки настроек:', error);
@@ -221,20 +223,25 @@ class ChatMonitorPopup {
                 return;
             }
             
-            console.log('Сохраняем API ключ длиной:', apiKey.length, 'символов');
+            console.log('Сохраняем API ключ через ConfigManager, длина:', apiKey.length, 'символов');
             
-            // Сохраняем в storage
-            await chrome.storage.sync.set({ apiKey: apiKey });
-            this.settings.apiKey = apiKey;
+            // Сохраняем через ConfigManager
+            const success = await this.configManager.saveApiKey(apiKey);
             
-            // Проверяем что сохранилось
-            const verification = await chrome.storage.sync.get(['apiKey']);
-            console.log('Проверка сохранения API ключа:', verification.apiKey ? 'успешно' : 'провалилась');
-            
-            this.showApiStatus('API ключ успешно сохранен', 'success');
-            
-            // Обновляем placeholder
-            apiKeyInput.placeholder = '••••••••••••••••••••';
+            if (success) {
+                this.settings.apiKey = apiKey;
+                
+                // Проверяем что сохранилось
+                const verification = await this.configManager.getApiKey();
+                console.log('Проверка сохранения API ключа:', verification ? 'успешно' : 'провалилась');
+                
+                this.showApiStatus('API ключ успешно сохранен', 'success');
+                
+                // Обновляем placeholder
+                apiKeyInput.placeholder = '••••••••••••••••••••';
+            } else {
+                this.showApiStatus('Ошибка сохранения API ключа', 'error');
+            }
             
         } catch (error) {
             console.error('Ошибка сохранения API ключа:', error);
@@ -365,13 +372,8 @@ class ChatMonitorPopup {
         try {
             console.log('Popup: Попытка исправления текста...');
             
-            // Получаем API ключ
-            let apiKey = this.settings.apiKey;
-            if (!apiKey) {
-                // Пытаемся загрузить из storage
-                const apiKeyData = await chrome.storage.sync.get(['apiKey']);
-                apiKey = apiKeyData.apiKey;
-            }
+            // Получаем API ключ через ConfigManager
+            let apiKey = await this.configManager.getApiKey();
             
             console.log('Popup: API ключ для исправления:', apiKey ? 'найден' : 'не найден');
             

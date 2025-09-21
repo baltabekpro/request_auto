@@ -1,6 +1,11 @@
 // Background script для обработки уведомлений
+
+// Импортируем ConfigManager
+importScripts('config-manager.js');
+
 class ChatMonitorBackground {
     constructor() {
+        this.configManager = new ConfigManager();
         this.notifiedChats = new Set(); // Хранение уже уведомленных чатов
         this.settings = {
             enabled: true,
@@ -370,39 +375,19 @@ class ChatMonitorBackground {
     // Получение API ключей
     async getApiKeys() {
         try {
-            console.log('Background: Попытка получить API ключ из storage...');
+            console.log('Background: Получение API ключа через ConfigManager...');
             
-            // Проверяем доступность chrome.storage
-            if (!chrome.storage) {
-                console.error('Background: chrome.storage недоступен!');
-                return [];
+            // Используем ConfigManager для получения API ключа
+            const apiKey = await this.configManager.getApiKey();
+            
+            if (apiKey && apiKey.trim()) {
+                console.log('Background: API ключ найден через ConfigManager, длина:', apiKey.length);
+                return [apiKey.trim()]; // Возвращаем как массив для совместимости
             }
             
-            if (!chrome.storage.sync) {
-                console.error('Background: chrome.storage.sync недоступен!');
-                return [];
-            }
+            console.log('Background: API ключ не найден');
+            return [];
             
-            // Получаем API ключ из нового хранилища
-            const result = await chrome.storage.sync.get(['apiKey']);
-            console.log('Background: Результат получения API ключа:', result);
-            
-            if (result.apiKey && result.apiKey.trim()) {
-                console.log('Background: API ключ найден, длина:', result.apiKey.length);
-                return [result.apiKey.trim()]; // Возвращаем как массив для совместимости
-            }
-            
-            // Проверяем все ключи в storage для отладки
-            const allData = await chrome.storage.sync.get(null);
-            console.log('Background: Все данные в storage:', allData);
-            
-            // Фоллбэк для старого формата хранения
-            const oldResult = await chrome.storage.sync.get(['textCorrectionApiKeys']);
-            console.log('Background: Проверка старого формата API ключей:', oldResult);
-            
-            const apiKeys = oldResult.textCorrectionApiKeys || [];
-            console.log('Background: Итоговый результат API ключей:', apiKeys);
-            return apiKeys;
         } catch (error) {
             console.error('Background: Ошибка получения API ключей:', error);
             console.error('Background: Стек ошибки:', error.stack);
