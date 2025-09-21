@@ -272,9 +272,14 @@ class ChatMonitorBackground {
     // Исправление всего текста в активном элементе
     async correctAllTextInActiveElement(tabId) {
         try {
+            console.log('Начинаем исправление текста...');
+            
             // Получаем API ключи из хранилища
             const apiKeys = await this.getApiKeys();
+            console.log('Получены API ключи:', apiKeys.length, 'шт.');
+            
             if (!apiKeys.length) {
+                console.log('API ключи не найдены');
                 await chrome.tabs.sendMessage(tabId, { 
                     action: 'showNotification', 
                     message: 'Необходимо настроить Gemini API ключ в панели расширения', 
@@ -282,6 +287,8 @@ class ChatMonitorBackground {
                 });
                 return { success: false, error: 'No Gemini API key found' };
             }
+            
+            console.log('Используем API ключ длиной:', apiKeys[0].length, 'символов');
 
             // Получаем весь текст из активного элемента
             const textResp = await chrome.tabs.sendMessage(tabId, { action: 'getAllTextFromActiveElement' });
@@ -352,13 +359,20 @@ class ChatMonitorBackground {
         try {
             // Получаем API ключ из нового хранилища
             const result = await chrome.storage.sync.get(['apiKey']);
-            if (result.apiKey) {
-                return [result.apiKey]; // Возвращаем как массив для совместимости
+            console.log('Получение API ключа из storage:', result);
+            
+            if (result.apiKey && result.apiKey.trim()) {
+                console.log('API ключ найден, длина:', result.apiKey.length);
+                return [result.apiKey.trim()]; // Возвращаем как массив для совместимости
             }
             
             // Фоллбэк для старого формата хранения
             const oldResult = await chrome.storage.sync.get(['textCorrectionApiKeys']);
-            return oldResult.textCorrectionApiKeys || [];
+            console.log('Проверка старого формата API ключей:', oldResult);
+            
+            const apiKeys = oldResult.textCorrectionApiKeys || [];
+            console.log('Итоговый результат API ключей:', apiKeys);
+            return apiKeys;
         } catch (error) {
             console.error('Ошибка получения API ключей:', error);
             return [];

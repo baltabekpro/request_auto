@@ -221,9 +221,15 @@ class ChatMonitorPopup {
                 return;
             }
             
+            console.log('Сохраняем API ключ длиной:', apiKey.length, 'символов');
+            
             // Сохраняем в storage
             await chrome.storage.sync.set({ apiKey: apiKey });
             this.settings.apiKey = apiKey;
+            
+            // Проверяем что сохранилось
+            const verification = await chrome.storage.sync.get(['apiKey']);
+            console.log('Проверка сохранения API ключа:', verification.apiKey ? 'успешно' : 'провалилась');
             
             this.showApiStatus('API ключ успешно сохранен', 'success');
             

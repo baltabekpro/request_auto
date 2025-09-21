@@ -244,7 +244,9 @@
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         switch (request.action) {
             case 'getAllTextFromActiveElement':
+                console.log('Content script: запрос получения текста из активного элемента');
                 const text = getAllTextFromActiveElement();
+                console.log('Content script: найден текст длиной:', text.length, 'символов');
                 sendResponse({ text });
                 break;
                 
@@ -307,9 +309,11 @@
     // Получить весь текст из активного элемента
     function getAllTextFromActiveElement() {
         const activeElement = document.activeElement;
+        console.log('Активный элемент:', activeElement ? activeElement.tagName : 'нет');
         
         if (activeElement && (activeElement.tagName === 'TEXTAREA' || 
             (activeElement.tagName === 'INPUT' && activeElement.type === 'text'))) {
+            console.log('Найден активный текстовый элемент с текстом:', activeElement.value.length, 'символов');
             return activeElement.value;
         }
         
@@ -317,14 +321,19 @@
         const textareas = document.querySelectorAll('textarea');
         const textInputs = document.querySelectorAll('input[type="text"]');
         
+        console.log('Найдено textarea:', textareas.length, ', text inputs:', textInputs.length);
+        
         if (textareas.length > 0) {
+            console.log('Используем первый textarea с текстом:', textareas[0].value.length, 'символов');
             return textareas[0].value;
         }
         
         if (textInputs.length > 0) {
+            console.log('Используем первый text input с текстом:', textInputs[0].value.length, 'символов');
             return textInputs[0].value;
         }
         
+        console.log('Текстовые элементы не найдены');
         return '';
     }
     
