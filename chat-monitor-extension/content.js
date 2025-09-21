@@ -58,6 +58,144 @@
         return null;
     }
     
+    // Функции для работы с номерами телефонов
+    function normalizePhoneNumber(phone) {
+        // Убираем все нецифровые символы
+        const digits = phone.replace(/\D/g, '');
+        
+        // Проверяем разные форматы казахстанских номеров
+        if (digits.length === 10 && digits.startsWith('7')) {
+            // 7007077777 -> +7 700 707 77 77
+            return '+7 ' + digits.substring(1, 4) + ' ' + digits.substring(4, 7) + ' ' + digits.substring(7, 9) + ' ' + digits.substring(9, 11);
+        } else if (digits.length === 11 && digits.startsWith('87')) {
+            // 87007077777 -> +7 700 707 77 77
+            return '+7 ' + digits.substring(2, 5) + ' ' + digits.substring(5, 8) + ' ' + digits.substring(8, 10) + ' ' + digits.substring(10, 12);
+        } else if (digits.length === 11 && digits.startsWith('77')) {
+            // 77007077777 -> +7 700 707 77 77
+            return '+7 ' + digits.substring(2, 5) + ' ' + digits.substring(5, 8) + ' ' + digits.substring(8, 10) + ' ' + digits.substring(10, 12);
+        } else if (digits.length === 10 && !digits.startsWith('7')) {
+            // 7007077777 (без первой 7) -> +7 700 707 77 77
+            return '+7 ' + digits.substring(0, 3) + ' ' + digits.substring(3, 6) + ' ' + digits.substring(6, 8) + ' ' + digits.substring(8, 10);
+        }
+        
+        // Если не подходит под стандартные форматы, возвращаем как есть с +7
+        if (digits.length >= 10) {
+            return '+7 ' + digits.substring(digits.length - 10, digits.length - 7) + ' ' + 
+                   digits.substring(digits.length - 7, digits.length - 4) + ' ' + 
+                   digits.substring(digits.length - 4, digits.length - 2) + ' ' + 
+                   digits.substring(digits.length - 2);
+        }
+        
+        return phone; // Возвращаем исходный, если не получилось распознать
+    }
+    
+    function findPhoneNumbers(text) {
+        const phoneNumbers = new Set(); // Используем Set для избежания дубликатов
+        
+        // Различные паттерны для поиска номеров телефонов
+        const phonePatterns = [
+            // Казахстанские номера с кодом +7 или 8
+            /\+?7\s*[\-\(\)]?\s*[0-9]{3}\s*[\-\(\)]?\s*[0-9]{3}\s*[\-\(\)]?\s*[0-9]{2}\s*[\-\(\)]?\s*[0-9]{2}/g,
+            /8\s*[\-\(\)]?\s*[0-9]{3}\s*[\-\(\)]?\s*[0-9]{3}\s*[\-\(\)]?\s*[0-9]{2}\s*[\-\(\)]?\s*[0-9]{2}/g,
+            // Простые форматы без разделителей
+            /\b[78][0-9]{10}\b/g,
+            /\b[0-9]{10}\b/g,
+            // С различными разделителями
+            /\b[78][\s\-\(\)]*[0-9]{3}[\s\-\(\)]*[0-9]{3}[\s\-\(\)]*[0-9]{2}[\s\-\(\)]*[0-9]{2}\b/g,
+            // Международный формат
+            /\+7[\s\-\(\)]*[0-9]{3}[\s\-\(\)]*[0-9]{3}[\s\-\(\)]*[0-9]{2}[\s\-\(\)]*[0-9]{2}/g
+        ];
+        
+        phonePatterns.forEach(pattern => {
+            const matches = text.match(pattern);
+            if (matches) {
+                matches.forEach(match => {
+                    const cleaned = match.trim();
+                    // Проверяем, что это действительно похоже на номер телефона
+                    const digits = cleaned.replace(/\D/g, '');
+                    if (digits.length >= 10 && digits.length <= 12) {
+                        const normalized = normalizePhoneNumber(cleaned);
+                        phoneNumbers.add(normalized);
+                    }
+                });
+            }
+        });
+        
+        return Array.from(phoneNumbers);
+    }
+    
+    function extractPhonesFromChat() {
+        const phones = new Set();
+        
+        // Ищем все сообщения в чате
+        const messages = document.querySelectorAll('.message, .msg, .chat-message, [class*="message"], [class*="msg"]');
+        
+        if (messages.length === 0) {
+            // Если не нашли по классам, ищем по всему тексту страницы
+            const pageText = document.body.innerText;
+            const foundPhones = findPhoneNumbers(pageText);
+            foundPhones.forEach(phone => phones.add(phone));
+        } else {
+            // Ищем в каждом сообщении
+            messages.forEach(message => {
+                const messageText = message.innerText || message.textContent || '';
+                const foundPhones = findPhoneNumbers(messageText);
+                foundPhones.forEach(phone => phones.add(phone));
+            });
+        }
+        
+        // Также ищем в полях ввода и других элементах
+        const inputs = document.querySelectorAll('input[type="text"], textarea, [contenteditable="true"]');
+        inputs.forEach(input => {
+            const inputText = input.value || input.innerText || input.textContent || '';
+            const foundPhones = findPhoneNumbers(inputText);
+            foundPhones.forEach(phone => phones.add(phone));
+        });
+        
+        console.log('Content: Найденные номера телефонов:', Array.from(phones));
+        return Array.from(phones);
+    }
+    
+    function copyToClipboard(text) {
+        // Используем современный Clipboard API если доступен
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification('📱 Номер скопирован: ' + text, 'success');
+            }).catch(err => {
+                console.error('Ошибка копирования:', err);
+                fallbackCopyToClipboard(text);
+            });
+        } else {
+            fallbackCopyToClipboard(text);
+        }
+    }
+    
+    function fallbackCopyToClipboard(text) {
+        // Fallback для старых браузеров
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                showNotification('📱 Номер скопирован: ' + text, 'success');
+            } else {
+                showNotification('❌ Не удалось скопировать номер', 'error');
+            }
+        } catch (err) {
+            console.error('Fallback: Не удалось скопировать текст', err);
+            showNotification('❌ Ошибка копирования', 'error');
+        }
+        
+        document.body.removeChild(textArea);
+    }
+    
     // Функция для извлечения информации о чатах
     function extractChatInfo() {
         const chats = [];
@@ -546,7 +684,121 @@
             
             // Вставляем кнопку рядом с кнопкой "Шаблоны"
             templateButton.parentNode.insertBefore(correctButton, templateButton.nextSibling);
+            
+            // Создаем и добавляем блок с номерами телефонов
+            updatePhoneNumbersDisplay();
         }
+    }
+    
+    // Функция для создания и обновления отображения номеров телефонов
+    function updatePhoneNumbersDisplay() {
+        // Удаляем старый блок если существует
+        const existingPhoneBlock = document.querySelector('#phone-numbers-block');
+        if (existingPhoneBlock) {
+            existingPhoneBlock.remove();
+        }
+        
+        // Ищем номера в текущем чате
+        const phoneNumbers = extractPhonesFromChat();
+        
+        if (phoneNumbers.length === 0) {
+            return; // Если номеров нет, не показываем блок
+        }
+        
+        // Находим место для вставки (рядом с кнопкой исправления)
+        const correctButton = document.querySelector('#correct-text-button');
+        if (!correctButton) {
+            return;
+        }
+        
+        // Создаем контейнер для номеров
+        const phoneBlock = document.createElement('div');
+        phoneBlock.id = 'phone-numbers-block';
+        phoneBlock.style.cssText = `
+            margin-top: 10px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            font-size: 12px;
+            max-width: 100%;
+        `;
+        
+        // Создаем заголовок
+        const title = document.createElement('div');
+        title.textContent = '📱 Найденные номера телефонов:';
+        title.style.cssText = `
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        `;
+        phoneBlock.appendChild(title);
+        
+        // Создаем контейнер для номеров
+        const numbersContainer = document.createElement('div');
+        numbersContainer.style.cssText = `
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        `;
+        
+        // Добавляем каждый номер как кликабельный элемент
+        phoneNumbers.forEach(phone => {
+            const phoneElement = document.createElement('span');
+            phoneElement.textContent = phone;
+            phoneElement.style.cssText = `
+                background-color: #e8f4fd;
+                border: 1px solid #0066cc;
+                border-radius: 3px;
+                padding: 3px 6px;
+                cursor: pointer;
+                color: #0066cc;
+                font-family: monospace;
+                white-space: nowrap;
+                transition: background-color 0.2s;
+            `;
+            
+            // Добавляем hover эффект
+            phoneElement.addEventListener('mouseenter', function() {
+                this.style.backgroundColor = '#d4edda';
+                this.style.borderColor = '#28a745';
+                this.style.color = '#28a745';
+            });
+            
+            phoneElement.addEventListener('mouseleave', function() {
+                this.style.backgroundColor = '#e8f4fd';
+                this.style.borderColor = '#0066cc';
+                this.style.color = '#0066cc';
+            });
+            
+            // Добавляем обработчик клика для копирования
+            phoneElement.addEventListener('click', function() {
+                copyToClipboard(phone);
+                
+                // Визуальная обратная связь при клике
+                const originalBg = this.style.backgroundColor;
+                const originalColor = this.style.color;
+                this.style.backgroundColor = '#28a745';
+                this.style.color = 'white';
+                
+                setTimeout(() => {
+                    this.style.backgroundColor = originalBg;
+                    this.style.color = originalColor;
+                }, 200);
+            });
+            
+            // Добавляем tooltip
+            phoneElement.title = 'Нажмите, чтобы скопировать номер';
+            
+            numbersContainer.appendChild(phoneElement);
+        });
+        
+        phoneBlock.appendChild(numbersContainer);
+        
+        // Вставляем блок после кнопки исправления
+        correctButton.parentNode.insertBefore(phoneBlock, correctButton.nextSibling);
+        
+        console.log('Content: Отображено номеров телефонов:', phoneNumbers.length);
     }
     
     // Пытаемся добавить кнопку при загрузке
@@ -558,14 +810,63 @@
         console.log('Автоматический запуск мониторинга чатов');
     }, 2000); // Задержка 2 секунды для полной загрузки страницы
     
-    // Наблюдаем за изменениями DOM для добавления кнопки на динамически загружаемые страницы
+    // Наблюдаем за изменениями DOM для добавления кнопки и обновления номеров
+    let updateTimeout = null;
     const buttonObserver = new MutationObserver(() => {
         addCorrectButton();
+        
+        // Обновляем номера телефонов с небольшой задержкой, чтобы избежать частых обновлений
+        if (updateTimeout) {
+            clearTimeout(updateTimeout);
+        }
+        updateTimeout = setTimeout(() => {
+            updatePhoneNumbersDisplay();
+        }, 500);
     });
     
     buttonObserver.observe(document.body, {
         childList: true,
         subtree: true
     });
+    
+    // Дополнительно отслеживаем изменения URL для обновления при смене чата
+    let lastUrl = location.href;
+    setInterval(() => {
+        if (location.href !== lastUrl) {
+            lastUrl = location.href;
+            console.log('Content: Обнаружена смена URL, обновляем номера телефонов');
+            setTimeout(() => {
+                updatePhoneNumbersDisplay();
+            }, 1000);
+        }
+    }, 1000);
+    
+    // Отслеживаем изменения в истории браузера (для SPA)
+    window.addEventListener('popstate', () => {
+        console.log('Content: Popstate event, обновляем номера телефонов');
+        setTimeout(() => {
+            updatePhoneNumbersDisplay();
+        }, 1000);
+    });
+    
+    // Переопределяем pushState и replaceState для отслеживания программных переходов
+    const originalPushState = history.pushState;
+    const originalReplaceState = history.replaceState;
+    
+    history.pushState = function() {
+        originalPushState.apply(history, arguments);
+        console.log('Content: PushState detected, обновляем номера телефонов');
+        setTimeout(() => {
+            updatePhoneNumbersDisplay();
+        }, 1000);
+    };
+    
+    history.replaceState = function() {
+        originalReplaceState.apply(history, arguments);
+        console.log('Content: ReplaceState detected, обновляем номера телефонов');
+        setTimeout(() => {
+            updatePhoneNumbersDisplay();
+        }, 1000);
+    };
     
 })();
