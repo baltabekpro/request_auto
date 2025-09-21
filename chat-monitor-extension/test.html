@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест Chat Monitor Extension</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        
+        button {
+            background: #007cba;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #005a87;
+        }
+        
+        .chat-card {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        
+        .console-output {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Тест Chat Monitor Extension</h1>
+    
+    <div class="test-section">
+        <h2>📝 Тест исправления текста</h2>
+        <p>Введите текст с ошибками и нажмите кнопку "Исправить" или используйте Ctrl+Shift+C:</p>
+        
+        <textarea id="testTextarea" placeholder="Введите текст с ошибками для проверки...">
+Превет! как дела? я хочу протестировать етот текст.
+ошибоки есть наверно,но етого надо ждат корекции от ИИ.
+спосибо за внимание!
+        </textarea>
+        
+        <input type="text" id="testInput" placeholder="Или введите текст в это поле..." value="тест корекции текста с ошибками">
+        
+        <div>
+            <button onclick="testCorrection()">🔧 Тест исправления</button>
+            <button onclick="clearText()">🗑️ Очистить</button>
+            <button onclick="showConsole()">📋 Показать логи</button>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>💬 Тест мониторинга чатов</h2>
+        <p>Симуляция карточек чатов для тестирования мониторинга времени:</p>
+        
+        <!-- Симуляция старых чатов (18+ минут) -->
+        <div class="chat-card">
+            <td id="name_5835667" style="max-width: 100%">
+                <div style="float: left;">
+                    <img style="width: 20px; margin-right: 10px;" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHZpZXdCb3g9IjAgMCAyMCAyMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjIwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjNDA4MEZGIiByeD0iNCIvPgo8L3N2Zz4K">
+                    <strong>Yermukhan</strong> (Instagram Altel: Общая)
+                </div>
+                <div style="clear: both"></div>
+                <div style="height: 1.25em;line-height: 1.25;overflow: hidden; white-space: nowrap; text-overflow: ellipsis">
+                    Сәлеметсіз бе! Сізге қалай көмектесе аламын?
+                </div>
+                <span id="old-time">10:30</span> <!-- Время 20+ минут назад -->
+            </td>
+        </div>
+        
+        <!-- Симуляция нового чата (менее 18 минут) -->
+        <div class="chat-card">
+            <td id="name_5835668" style="max-width: 100%">
+                <div style="float: left;">
+                    <img style="width: 20px; margin-right: 10px;" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHZpZXdCb3g9IjAgMCAyMCAyMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjIwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjNDA4MEZGIiByeD0iNCIvPgo8L3N2Zz4K">
+                    <strong>Айгуль</strong> (Telegram Support)
+                </div>
+                <div style="clear: both"></div>
+                <div style="height: 1.25em;line-height: 1.25;overflow: hidden; white-space: nowrap; text-overflow: ellipsis">
+                    Добрый день! У меня вопрос по тарифу.
+                </div>
+                <span id="new-time">14:45</span> <!-- Время 5 минут назад -->
+            </td>
+        </div>
+        
+        <div>
+            <button onclick="updateTestTimes()">🕒 Обновить времена</button>
+            <button onclick="testMonitoring()">🎯 Тест мониторинга</button>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>📊 Консоль логов</h2>
+        <div id="console-output" class="console-output">
+            Логи появятся здесь...
+        </div>
+        <button onclick="clearConsole()">🗑️ Очистить логи</button>
+    </div>
+
+    <script>
+        // Перехватываем console.log для отображения в интерфейсе
+        const originalLog = console.log;
+        const consoleOutput = document.getElementById('console-output');
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            const timestamp = new Date().toLocaleTimeString();
+            consoleOutput.textContent += `[${timestamp}] ${args.join(' ')}\n`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        };
+
+        function testCorrection() {
+            console.log('🧪 Тестирование функции исправления текста...');
+            
+            // Имитируем нажатие кнопки исправления из расширения
+            if (chrome && chrome.runtime) {
+                chrome.runtime.sendMessage({ type: 'CORRECT_ALL_TEXT' }, (response) => {
+                    if (response && response.success) {
+                        console.log('✅ Текст успешно исправлен');
+                    } else {
+                        console.log('❌ Ошибка исправления текста:', response?.error);
+                    }
+                });
+            } else {
+                console.log('❌ Chrome API недоступен. Убедитесь, что расширение загружено.');
+            }
+        }
+
+        function clearText() {
+            document.getElementById('testTextarea').value = '';
+            document.getElementById('testInput').value = '';
+            console.log('🗑️ Текстовые поля очищены');
+        }
+
+        function updateTestTimes() {
+            const now = new Date();
+            
+            // Устанавливаем старое время (25 минут назад)
+            const oldTime = new Date(now.getTime() - 25 * 60 * 1000);
+            document.getElementById('old-time').textContent = 
+                oldTime.getHours().toString().padStart(2, '0') + ':' + 
+                oldTime.getMinutes().toString().padStart(2, '0');
+            
+            // Устанавливаем новое время (5 минут назад)
+            const newTime = new Date(now.getTime() - 5 * 60 * 1000);
+            document.getElementById('new-time').textContent = 
+                newTime.getHours().toString().padStart(2, '0') + ':' + 
+                newTime.getMinutes().toString().padStart(2, '0');
+            
+            console.log('🕒 Времена в карточках чатов обновлены');
+        }
+
+        function testMonitoring() {
+            console.log('🎯 Тестирование мониторинга чатов...');
+            
+            if (chrome && chrome.runtime) {
+                chrome.runtime.sendMessage({ type: 'START_MONITORING' }, (response) => {
+                    console.log('📡 Мониторинг запущен:', response);
+                });
+            } else {
+                console.log('❌ Chrome API недоступен для тестирования мониторинга');
+            }
+        }
+
+        function showConsole() {
+            console.log('📋 Показать логи консоли браузера (F12 -> Console)');
+        }
+
+        function clearConsole() {
+            consoleOutput.textContent = 'Логи очищены...\n';
+        }
+
+        // Автоматически обновляем времена при загрузке
+        updateTestTimes();
+        
+        // Сообщаем о загрузке тестовой страницы
+        console.log('🧪 Тестовая страница Chat Monitor Extension загружена');
+        console.log('💡 Инструкции:');
+        console.log('1. Убедитесь, что расширение загружено в Chrome');
+        console.log('2. Настройте Gemini API ключ в панели расширения');
+        console.log('3. Используйте кнопки для тестирования функций');
+        console.log('4. Проверьте логи в консоли браузера (F12)');
+    </script>
+</body>
+</html>
