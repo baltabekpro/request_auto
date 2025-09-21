@@ -437,14 +437,38 @@
             correctButton.style.marginLeft = '5px';
             correctButton.textContent = 'Исправить';
             
-            correctButton.onclick = function() {
-                chrome.runtime.sendMessage({ type: 'CORRECT_ALL_TEXT' }, (response) => {
-                    if (response && response.success) {
-                        console.log('Текст успешно исправлен');
-                    } else {
-                        console.error('Ошибка исправления текста:', response?.error);
+            correctButton.onclick = async function() {
+                console.log('Content: Кнопка исправления нажата');
+                
+                try {
+                    // Сначала получаем API ключ
+                    const apiKeyResponse = await chrome.runtime.sendMessage({ type: 'GET_API_KEY' });
+                    const apiKey = apiKeyResponse?.apiKey;
+                    
+                    console.log('Content: API ключ получен:', apiKey ? 'да' : 'нет');
+                    
+                    if (!apiKey) {
+                        alert('Сначала настройте Gemini API ключ в панели расширения');
+                        return;
                     }
-                });
+                    
+                    // Отправляем запрос на исправление с API ключом
+                    chrome.runtime.sendMessage({ 
+                        type: 'CORRECT_ALL_TEXT',
+                        apiKey: apiKey 
+                    }, (response) => {
+                        console.log('Content: Ответ на исправление:', response);
+                        if (response && response.success) {
+                            console.log('Content: Текст успешно исправлен');
+                        } else {
+                            console.error('Content: Ошибка исправления текста:', response?.error);
+                            alert('Ошибка исправления: ' + (response?.error || 'Неизвестная ошибка'));
+                        }
+                    });
+                } catch (error) {
+                    console.error('Content: Ошибка получения API ключа:', error);
+                    alert('Ошибка: ' + error.message);
+                }
             };
             
             // Вставляем кнопку рядом с кнопкой "Шаблоны"

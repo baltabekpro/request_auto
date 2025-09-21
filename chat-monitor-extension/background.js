@@ -94,8 +94,14 @@ class ChatMonitorBackground {
                     break;
                     
                 case 'CORRECT_ALL_TEXT':
-                    const result = await this.correctAllTextInActiveElement(sender.tab.id);
+                    console.log('Background: Получен запрос на исправление текста');
+                    const result = await this.correctAllTextInActiveElement(sender.tab.id, request.apiKey);
                     sendResponse(result);
+                    break;
+                    
+                case 'GET_API_KEY':
+                    const apiKeys = await this.getApiKeys();
+                    sendResponse({ apiKey: apiKeys.length > 0 ? apiKeys[0] : null });
                     break;
                     
                 case 'GET_STATISTICS':
@@ -270,25 +276,32 @@ class ChatMonitorBackground {
     }
     
     // Исправление всего текста в активном элементе
-    async correctAllTextInActiveElement(tabId) {
+    async correctAllTextInActiveElement(tabId, providedApiKey = null) {
         try {
-            console.log('Начинаем исправление текста...');
+            console.log('Background: Начинаем исправление текста...');
+            console.log('Background: Предоставлен API ключ:', providedApiKey ? 'да' : 'нет');
             
-            // Получаем API ключи из хранилища
-            const apiKeys = await this.getApiKeys();
-            console.log('Получены API ключи:', apiKeys.length, 'шт.');
+            let apiKey = providedApiKey;
             
-            if (!apiKeys.length) {
-                console.log('API ключи не найдены');
-                await chrome.tabs.sendMessage(tabId, { 
-                    action: 'showNotification', 
-                    message: 'Необходимо настроить Gemini API ключ в панели расширения', 
-                    type: 'error' 
-                });
-                return { success: false, error: 'No Gemini API key found' };
+            // Если API ключ не предоставлен, пытаемся получить из storage
+            if (!apiKey) {
+                const apiKeys = await this.getApiKeys();
+                console.log('Background: Получены API ключи из storage:', apiKeys.length, 'шт.');
+                
+                if (!apiKeys.length) {
+                    console.log('Background: API ключи не найдены');
+                    await chrome.tabs.sendMessage(tabId, { 
+                        action: 'showNotification', 
+                        message: 'Необходимо настроить Gemini API ключ в панели расширения', 
+                        type: 'error' 
+                    });
+                    return { success: false, error: 'No Gemini API key found' };
+                }
+                
+                apiKey = apiKeys[0];
             }
             
-            console.log('Используем API ключ длиной:', apiKeys[0].length, 'символов');
+            console.log('Background: Используем API ключ длиной:', apiKey.length, 'символов');
 
             // Получаем весь текст из активного элемента
             const textResp = await chrome.tabs.sendMessage(tabId, { action: 'getAllTextFromActiveElement' });
@@ -310,7 +323,7 @@ class ChatMonitorBackground {
             });
 
             // Исправляем текст с помощью ИИ
-            const correctedText = await this.correctTextWithAI(allText, apiKeys[0]);
+            const correctedText = await this.correctTextWithAI(allText, apiKey);
 
             if (correctedText) {
                 if (correctedText.startsWith('Ошибка API:')) {
@@ -357,24 +370,42 @@ class ChatMonitorBackground {
     // Получение API ключей
     async getApiKeys() {
         try {
+            console.log('Background: Попытка получить API ключ из storage...');
+            
+            // Проверяем доступность chrome.storage
+            if (!chrome.storage) {
+                console.error('Background: chrome.storage недоступен!');
+                return [];
+            }
+            
+            if (!chrome.storage.sync) {
+                console.error('Background: chrome.storage.sync недоступен!');
+                return [];
+            }
+            
             // Получаем API ключ из нового хранилища
             const result = await chrome.storage.sync.get(['apiKey']);
-            console.log('Получение API ключа из storage:', result);
+            console.log('Background: Результат получения API ключа:', result);
             
             if (result.apiKey && result.apiKey.trim()) {
-                console.log('API ключ найден, длина:', result.apiKey.length);
+                console.log('Background: API ключ найден, длина:', result.apiKey.length);
                 return [result.apiKey.trim()]; // Возвращаем как массив для совместимости
             }
             
+            // Проверяем все ключи в storage для отладки
+            const allData = await chrome.storage.sync.get(null);
+            console.log('Background: Все данные в storage:', allData);
+            
             // Фоллбэк для старого формата хранения
             const oldResult = await chrome.storage.sync.get(['textCorrectionApiKeys']);
-            console.log('Проверка старого формата API ключей:', oldResult);
+            console.log('Background: Проверка старого формата API ключей:', oldResult);
             
             const apiKeys = oldResult.textCorrectionApiKeys || [];
-            console.log('Итоговый результат API ключей:', apiKeys);
+            console.log('Background: Итоговый результат API ключей:', apiKeys);
             return apiKeys;
         } catch (error) {
-            console.error('Ошибка получения API ключей:', error);
+            console.error('Background: Ошибка получения API ключей:', error);
+            console.error('Background: Стек ошибки:', error.stack);
             return [];
         }
     }

@@ -363,17 +363,42 @@ class ChatMonitorPopup {
     
     async correctText() {
         try {
-            // Отправляем команду на исправление текста
-            const response = await chrome.runtime.sendMessage({ type: 'CORRECT_ALL_TEXT' });
+            console.log('Popup: Попытка исправления текста...');
+            
+            // Получаем API ключ
+            let apiKey = this.settings.apiKey;
+            if (!apiKey) {
+                // Пытаемся загрузить из storage
+                const apiKeyData = await chrome.storage.sync.get(['apiKey']);
+                apiKey = apiKeyData.apiKey;
+            }
+            
+            console.log('Popup: API ключ для исправления:', apiKey ? 'найден' : 'не найден');
+            
+            if (!apiKey) {
+                console.error('Popup: API ключ не найден');
+                alert('Сначала настройте Gemini API ключ в панели расширения');
+                return;
+            }
+            
+            // Отправляем команду на исправление текста с API ключом
+            const response = await chrome.runtime.sendMessage({ 
+                type: 'CORRECT_ALL_TEXT',
+                apiKey: apiKey 
+            });
+            
+            console.log('Popup: Ответ от background:', response);
             
             if (response && response.success) {
-                console.log('Текст успешно исправлен');
+                console.log('Popup: Текст успешно исправлен');
                 // Можно добавить визуальную обратную связь
             } else {
-                console.error('Ошибка исправления текста:', response?.error);
+                console.error('Popup: Ошибка исправления текста:', response?.error);
+                alert('Ошибка исправления текста: ' + (response?.error || 'Неизвестная ошибка'));
             }
         } catch (error) {
-            console.error('Ошибка отправки команды исправления текста:', error);
+            console.error('Popup: Ошибка отправки команды исправления текста:', error);
+            alert('Ошибка отправки команды: ' + error.message);
         }
     }
     
