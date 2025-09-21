@@ -2,6 +2,38 @@
 (function() {
     'use strict';
     
+    // Проверяем валидность контекста расширения при загрузке
+    function checkExtensionContext() {
+        if (!chrome.runtime || !chrome.runtime.id) {
+            console.warn('Content: Контекст расширения недействителен при загрузке');
+            return false;
+        }
+        return true;
+    }
+    
+    // Безопасный вызов chrome.runtime.sendMessage с проверкой контекста
+    function safeSendMessage(message, callback) {
+        if (!checkExtensionContext()) {
+            console.warn('Content: Пропуск sendMessage из-за недействительного контекста');
+            if (callback) callback({ error: 'Extension context invalidated' });
+            return;
+        }
+        
+        try {
+            chrome.runtime.sendMessage(message, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.warn('Content: Runtime lastError:', chrome.runtime.lastError.message);
+                    if (callback) callback({ error: chrome.runtime.lastError.message });
+                } else {
+                    if (callback) callback(response);
+                }
+            });
+        } catch (error) {
+            console.warn('Content: Ошибка sendMessage:', error.message);
+            if (callback) callback({ error: error.message });
+        }
+    }
+    
     let isMonitoring = false;
     let chatMonitorInterval = null;
     
@@ -129,7 +161,7 @@
                 
                 if (timeDiff >= eighteenMinutesInMs) {
                     // Отправляем сообщение в background script для уведомления
-                    chrome.runtime.sendMessage({
+                    safeSendMessage({
                         type: 'CHAT_NEEDS_CLOSING',
                         chatId: chat.id,
                         timeSinceLastMessage: minutesDiff,
@@ -441,6 +473,13 @@
                 console.log('Content: Кнопка исправления нажата');
                 
                 try {
+                    // Проверяем, доступен ли контекст расширения
+                    if (!chrome.runtime || !chrome.runtime.id) {
+                        console.warn('Content: Контекст расширения недействителен, перезагрузите страницу');
+                        alert('⚠️ Контекст расширения недействителен.\n\nПерезагрузите страницу для корректной работы расширения.');
+                        return;
+                    }
+                    
                     // Сначала пробуем получить API ключ из кода
                     let apiKey = null;
                     
@@ -449,34 +488,59 @@
                         console.log('Content: API ключ из кода:', apiKey ? 'найден' : 'не найден');
                     }
                     
-                    // Если в коде нет, пробуем через runtime
+                    // Если в коде нет, пробуем через runtime (с проверкой ошибок)
                     if (!apiKey) {
-                        const apiKeyResponse = await chrome.runtime.sendMessage({ type: 'GET_API_KEY' });
-                        apiKey = apiKeyResponse?.apiKey;
-                        console.log('Content: API ключ из runtime:', apiKey ? 'найден' : 'не найден');
+                        try {
+                            const apiKeyResponse = await new Promise((resolve, reject) => {
+                                safeSendMessage({ type: 'GET_API_KEY' }, (response) => {
+                                    if (response?.error) {
+                                        reject(new Error(response.error));
+                                    } else {
+                                        resolve(response);
+                                    }
+                                });
+                            });
+                            apiKey = apiKeyResponse?.apiKey;
+                            console.log('Content: API ключ из runtime:', apiKey ? 'найден' : 'не найден');
+                        } catch (runtimeError) {
+                            console.warn('Content: Ошибка runtime API:', runtimeError.message);
+                            // Продолжаем без runtime API
+                        }
                     }
                     
                     if (!apiKey) {
-                        alert('❌ API ключ не найден!\n\nВы можете:\n1. Настроить ключ в панели расширения\n2. Или отредактировать файл api-config.js');
+                        alert('❌ API ключ не найден!\n\nВы можете:\n1. Настроить ключ в панели расширения\n2. Или отредактировать файл api-config.js\n3. Если ошибка повторяется - перезагрузите страницу');
                         return;
                     }
                     
-                    // Отправляем запрос на исправление с API ключом
-                    chrome.runtime.sendMessage({ 
-                        type: 'CORRECT_ALL_TEXT',
-                        apiKey: apiKey 
-                    }, (response) => {
-                        console.log('Content: Ответ на исправление:', response);
-                        if (response && response.success) {
-                            console.log('Content: Текст успешно исправлен');
-                        } else {
-                            console.error('Content: Ошибка исправления текста:', response?.error);
-                            alert('Ошибка исправления: ' + (response?.error || 'Неизвестная ошибка'));
-                        }
-                    });
+                    // Отправляем запрос на исправление с API ключом (с проверкой ошибок)
+                    try {
+                        await new Promise((resolve, reject) => {
+                            safeSendMessage({ 
+                                type: 'CORRECT_ALL_TEXT',
+                                apiKey: apiKey 
+                            }, (response) => {
+                                if (response?.error) {
+                                    reject(new Error(response.error));
+                                } else {
+                                    console.log('Content: Ответ на исправление:', response);
+                                    if (response && response.success) {
+                                        console.log('Content: Текст успешно исправлен');
+                                        resolve(response);
+                                    } else {
+                                        console.error('Content: Ошибка исправления текста:', response?.error);
+                                        reject(new Error(response?.error || 'Неизвестная ошибка'));
+                                    }
+                                }
+                            });
+                        });
+                    } catch (correctionError) {
+                        console.error('Content: Ошибка исправления:', correctionError.message);
+                        alert('Ошибка исправления: ' + correctionError.message + '\n\nЕсли ошибка повторяется - перезагрузите страницу.');
+                    }
                 } catch (error) {
-                    console.error('Content: Ошибка получения API ключа:', error);
-                    alert('Ошибка: ' + error.message);
+                    console.error('Content: Общая ошибка:', error);
+                    alert('Общая ошибка: ' + error.message + '\n\nПерезагрузите страницу и попробуйте снова.');
                 }
             };
             
