@@ -208,6 +208,42 @@
             font-size: 11px;
             opacity: 0.9;
         }
+        
+        .api-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .api-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            font-size: 12px;
+            margin: 8px 0;
+            box-sizing: border-box;
+        }
+        
+        .api-status {
+            font-size: 11px;
+            margin-top: 5px;
+            padding: 5px;
+            border-radius: 4px;
+        }
+        
+        .api-status.success {
+            background: rgba(74, 222, 128, 0.2);
+            color: #4ade80;
+        }
+        
+        .api-status.error {
+            background: rgba(248, 113, 113, 0.2);
+            color: #f87171;
+        }
     </style>
 </head>
 <body>
@@ -239,6 +275,20 @@
             <div class="stat-number" id="monitoredTabs">1</div>
             <div class="stat-label">Отслеживаемых вкладок</div>
         </div>
+    </div>
+    
+    <div class="api-section">
+        <h3 style="margin: 0 0 10px 0; font-size: 14px;">🔑 API Настройки</h3>
+        
+        <div class="setting-item">
+            <span class="setting-label">API ключ для ИИ исправлений</span>
+        </div>
+        <input type="password" class="api-input" id="apiKeyInput" placeholder="Введите ваш API ключ...">
+        <div class="actions" style="margin-top: 10px;">
+            <button class="btn btn-secondary" id="saveApiBtn">💾 Сохранить</button>
+            <button class="btn btn-secondary" id="testApiBtn">🧪 Проверить</button>
+        </div>
+        <div class="api-status hidden" id="apiStatus"></div>
     </div>
     
     <div class="settings-section">

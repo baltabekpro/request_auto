@@ -4,7 +4,8 @@ class ChatMonitorPopup {
         this.settings = {
             enabled: true,
             notificationInterval: 20,
-            soundEnabled: true
+            soundEnabled: true,
+            apiKey: ''
         };
         
         this.stats = {
@@ -35,6 +36,12 @@ class ChatMonitorPopup {
             const response = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
             if (response && response.settings) {
                 this.settings = response.settings;
+            }
+            
+            // Загружаем API ключ из хранилища
+            const apiKeyData = await chrome.storage.sync.get(['apiKey']);
+            if (apiKeyData.apiKey) {
+                this.settings.apiKey = apiKeyData.apiKey;
             }
         } catch (error) {
             console.error('Ошибка загрузки настроек:', error);
@@ -96,6 +103,15 @@ class ChatMonitorPopup {
         
         document.getElementById('refreshBtn').addEventListener('click', () => {
             this.refresh();
+        });
+        
+        // API ключ кнопки
+        document.getElementById('saveApiBtn').addEventListener('click', () => {
+            this.saveApiKey();
+        });
+        
+        document.getElementById('testApiBtn').addEventListener('click', () => {
+            this.testApiKey();
         });
     }
     
@@ -170,6 +186,13 @@ class ChatMonitorPopup {
         // Количество отслеживаемых вкладок (примерное)
         const monitoredTabs = this.currentChats ? 1 : 0;
         document.getElementById('monitoredTabs').textContent = monitoredTabs;
+        
+        // API ключ
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        if (this.settings.apiKey) {
+            apiKeyInput.value = this.settings.apiKey;
+            apiKeyInput.placeholder = '••••••••••••••••••••';
+        }
     }
     
     showNotificationPreview() {
@@ -185,6 +208,101 @@ class ChatMonitorPopup {
     hideNotificationPreview() {
         const preview = document.getElementById('previewNotification');
         preview.classList.add('hidden');
+    }
+    
+    async saveApiKey() {
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const apiKey = apiKeyInput.value.trim();
+        const statusElement = document.getElementById('apiStatus');
+        
+        try {
+            if (!apiKey) {
+                this.showApiStatus('Пожалуйста, введите API ключ', 'error');
+                return;
+            }
+            
+            // Сохраняем в storage
+            await chrome.storage.sync.set({ apiKey: apiKey });
+            this.settings.apiKey = apiKey;
+            
+            this.showApiStatus('API ключ успешно сохранен', 'success');
+            
+            // Обновляем placeholder
+            apiKeyInput.placeholder = '••••••••••••••••••••';
+            
+        } catch (error) {
+            console.error('Ошибка сохранения API ключа:', error);
+            this.showApiStatus('Ошибка сохранения API ключа', 'error');
+        }
+    }
+    
+    async testApiKey() {
+        const apiKey = this.settings.apiKey || document.getElementById('apiKeyInput').value.trim();
+        const statusElement = document.getElementById('apiStatus');
+        
+        if (!apiKey) {
+            this.showApiStatus('Сначала введите и сохраните API ключ', 'error');
+            return;
+        }
+        
+        try {
+            this.showApiStatus('Проверка API ключа...', '');
+            
+            // Простой тест запрос к API (можно адаптировать под конкретный API)
+            const testPrompt = 'Проверка подключения';
+            const response = await this.makeApiRequest(apiKey, testPrompt);
+            
+            if (response && response.success) {
+                this.showApiStatus('API ключ работает корректно', 'success');
+            } else {
+                this.showApiStatus('Ошибка: неверный API ключ или проблема с сервисом', 'error');
+            }
+            
+        } catch (error) {
+            console.error('Ошибка тестирования API:', error);
+            this.showApiStatus('Ошибка подключения к API сервису', 'error');
+        }
+    }
+    
+    async makeApiRequest(apiKey, prompt) {
+        // Здесь реализуется запрос к конкретному API (OpenAI, Claude, etc.)
+        // Пример для OpenAI API:
+        
+        try {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: 'gpt-3.5-turbo',
+                    messages: [{ role: 'user', content: prompt }],
+                    max_tokens: 10
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                return { success: true, data };
+            } else {
+                return { success: false, error: response.statusText };
+            }
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    }
+    
+    showApiStatus(message, type) {
+        const statusElement = document.getElementById('apiStatus');
+        statusElement.textContent = message;
+        statusElement.className = `api-status ${type}`;
+        statusElement.classList.remove('hidden');
+        
+        // Автоматически скрываем через 5 секунд
+        setTimeout(() => {
+            statusElement.classList.add('hidden');
+        }, 5000);
     }
     
     async testNotification() {

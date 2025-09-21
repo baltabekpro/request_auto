@@ -31,57 +31,78 @@
         const chats = [];
         
         try {
-            // Поиск панелей чатов по структуре HTML
-            const chatPanels = document.querySelectorAll('.panel-heading');
+            // Ищем карточки чатов по ID паттерну name_XXXXXX
+            const chatElements = document.querySelectorAll('td[id^="name_"]');
             
-            for (const panel of chatPanels) {
-                const text = panel.textContent || panel.innerText;
+            console.log(`Найдено карточек чатов: ${chatElements.length}`);
+            
+            for (const chatElement of chatElements) {
+                // Извлекаем ID чата из атрибута id
+                const idMatch = chatElement.id.match(/name_(\d+)/);
+                if (!idMatch) continue;
                 
-                // Поиск ID чата и статуса прикрепления
-                const chatIdMatch = text.match(/(\d+)\s*\|\s*(.*?)\s*\|/);
-                if (chatIdMatch) {
-                    const chatId = chatIdMatch[1];
-                    const statusText = chatIdMatch[2];
-                    const isPinned = statusText.includes('прикреплен');
+                const chatId = idMatch[1];
+                const chatText = chatElement.textContent || chatElement.innerText;
+                
+                // Определяем статус чата (прикрепленный или нет)
+                // Если нет специального индикатора, считаем все чаты неприкрепленными
+                const isPinned = false; // Можно адаптировать под конкретную логику
+                
+                // Извлекаем время последнего сообщения из конца текста
+                const timeMatch = chatText.match(/(\d{1,2}):(\d{2})$/);
+                let lastMessageTime = null;
+                
+                if (timeMatch) {
+                    const [, hour, minute] = timeMatch;
+                    const now = new Date();
                     
-                    // Поиск последнего сообщения для этого чата
-                    let lastMessageTime = null;
+                    // Создаем время сообщения для сегодняшней даты
+                    lastMessageTime = new Date(
+                        now.getFullYear(), 
+                        now.getMonth(), 
+                        now.getDate(), 
+                        parseInt(hour), 
+                        parseInt(minute)
+                    );
                     
-                    // Ищем элементы с временными метками рядом с этой панелью
-                    const parentElement = panel.closest('div') || panel.parentElement;
-                    if (parentElement) {
-                        // Поиск временных меток в соседних элементах
-                        const timeElements = parentElement.querySelectorAll('div[style*="padding: 5px"]');
-                        
-                        for (const timeElement of timeElements) {
-                            const timeText = timeElement.textContent || timeElement.innerText;
-                            const parsedTime = parseMessageTime(timeText);
-                            if (parsedTime && (!lastMessageTime || parsedTime > lastMessageTime)) {
-                                lastMessageTime = parsedTime;
-                            }
-                        }
-                        
-                        // Альтернативный поиск в элементах td
-                        const tdElements = parentElement.querySelectorAll('td');
-                        for (const td of tdElements) {
-                            const timeMatch = td.textContent.match(/(\d{1,2}):(\d{2})$/);
-                            if (timeMatch) {
-                                const [, hour, minute] = timeMatch;
-                                const now = new Date();
-                                const messageTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute);
-                                if (!lastMessageTime || messageTime > lastMessageTime) {
-                                    lastMessageTime = messageTime;
-                                }
-                            }
-                        }
+                    // Если время больше текущего, значит это было вчера
+                    if (lastMessageTime > now) {
+                        lastMessageTime.setDate(lastMessageTime.getDate() - 1);
                     }
+                }
+                
+                const chatInfo = {
+                    id: chatId,
+                    isPinned: isPinned,
+                    lastMessageTime: lastMessageTime,
+                    url: window.location.href,
+                    element: chatElement,
+                    text: chatText
+                };
+                
+                chats.push(chatInfo);
+                
+                // Проверяем время и выделяем красным если нужно
+                if (lastMessageTime) {
+                    const now = new Date();
+                    const timeDiff = now - lastMessageTime;
+                    const minutesDiff = Math.floor(timeDiff / (1000 * 60));
                     
-                    chats.push({
-                        id: chatId,
-                        isPinned: isPinned,
-                        lastMessageTime: lastMessageTime,
-                        url: window.location.href
-                    });
+                    console.log(`Чат ${chatId}: последнее сообщение ${minutesDiff} минут назад`);
+                    
+                    // Если прошло 18 или больше минут, выделяем красным
+                    if (minutesDiff >= 18) {
+                        chatElement.style.backgroundColor = '#ffebee';
+                        chatElement.style.borderLeft = '4px solid #f44336';
+                        chatElement.style.color = '#d32f2f';
+                        
+                        console.log(`Чат ${chatId} выделен красным - ${minutesDiff} минут неактивности`);
+                    } else {
+                        // Сбрасываем стили если время еще не истекло
+                        chatElement.style.backgroundColor = '';
+                        chatElement.style.borderLeft = '';
+                        chatElement.style.color = '';
+                    }
                 }
             }
             
@@ -98,21 +119,24 @@
     function checkChatActivity() {
         const chats = extractChatInfo();
         const now = new Date();
-        const twentyMinutesInMs = 20 * 60 * 1000; // 20 минут в миллисекундах
+        const eighteenMinutesInMs = 18 * 60 * 1000; // 18 минут в миллисекундах
         
         for (const chat of chats) {
             // Проверяем только неприкрепленные чаты
             if (!chat.isPinned && chat.lastMessageTime) {
                 const timeDiff = now - chat.lastMessageTime;
+                const minutesDiff = Math.floor(timeDiff / 60000);
                 
-                if (timeDiff >= twentyMinutesInMs) {
-                    // Отправляем сообщение в background script
+                if (timeDiff >= eighteenMinutesInMs) {
+                    // Отправляем сообщение в background script для уведомления
                     chrome.runtime.sendMessage({
                         type: 'CHAT_NEEDS_CLOSING',
                         chatId: chat.id,
-                        timeSinceLastMessage: Math.floor(timeDiff / 60000), // в минутах
+                        timeSinceLastMessage: minutesDiff,
                         url: chat.url
                     });
+                    
+                    console.log(`Чат ${chat.id} неактивен ${minutesDiff} минут - отправлено уведомление`);
                 }
             }
         }
@@ -126,10 +150,58 @@
         isMonitoring = true;
         
         // Проверяем каждые 30 секунд
-        chatMonitorInterval = setInterval(checkChatActivity, 30000);
+        chatMonitorInterval = setInterval(() => {
+            checkChatActivity();
+            updateChatHighlighting(); // Обновляем подсветку чатов
+        }, 30000);
         
         // Первоначальная проверка
         checkChatActivity();
+        updateChatHighlighting();
+    }
+    
+    // Функция для обновления визуального выделения чатов
+    function updateChatHighlighting() {
+        const chatElements = document.querySelectorAll('td[id^="name_"]');
+        const now = new Date();
+        
+        for (const chatElement of chatElements) {
+            const chatText = chatElement.textContent || chatElement.innerText;
+            const timeMatch = chatText.match(/(\d{1,2}):(\d{2})$/);
+            
+            if (timeMatch) {
+                const [, hour, minute] = timeMatch;
+                const lastMessageTime = new Date(
+                    now.getFullYear(), 
+                    now.getMonth(), 
+                    now.getDate(), 
+                    parseInt(hour), 
+                    parseInt(minute)
+                );
+                
+                // Если время больше текущего, значит это было вчера
+                if (lastMessageTime > now) {
+                    lastMessageTime.setDate(lastMessageTime.getDate() - 1);
+                }
+                
+                const timeDiff = now - lastMessageTime;
+                const minutesDiff = Math.floor(timeDiff / (1000 * 60));
+                
+                // Если прошло 18 или больше минут, выделяем красным
+                if (minutesDiff >= 18) {
+                    chatElement.style.backgroundColor = '#ffebee';
+                    chatElement.style.borderLeft = '4px solid #f44336';
+                    chatElement.style.color = '#d32f2f';
+                    chatElement.style.fontWeight = 'bold';
+                } else {
+                    // Сбрасываем стили если время еще не истекло
+                    chatElement.style.backgroundColor = '';
+                    chatElement.style.borderLeft = '';
+                    chatElement.style.color = '';
+                    chatElement.style.fontWeight = '';
+                }
+            }
+        }
     }
     
     // Функция для остановки мониторинга
@@ -373,6 +445,12 @@
     
     // Пытаемся добавить кнопку при загрузке
     addCorrectButton();
+    
+    // Автоматически запускаем мониторинг при загрузке страницы
+    setTimeout(() => {
+        startMonitoring();
+        console.log('Автоматический запуск мониторинга чатов');
+    }, 2000); // Задержка 2 секунды для полной загрузки страницы
     
     // Наблюдаем за изменениями DOM для добавления кнопки на динамически загружаемые страницы
     const buttonObserver = new MutationObserver(() => {
