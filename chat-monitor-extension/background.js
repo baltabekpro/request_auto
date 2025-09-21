@@ -1,6 +1,7 @@
 // Background script для обработки уведомлений
 
-// Импортируем ConfigManager
+// Импортируем простой API конфиг
+importScripts('api-config.js');
 importScripts('config-manager.js');
 
 class ChatMonitorBackground {
@@ -372,25 +373,34 @@ class ChatMonitorBackground {
         }
     }
     
-    // Получение API ключей
+    // Получение API ключей (упрощенная версия)
     async getApiKeys() {
         try {
-            console.log('Background: Получение API ключа через ConfigManager...');
+            console.log('Background: Получение API ключа из кода...');
             
-            // Используем ConfigManager для получения API ключа
+            // Сначала пробуем простую функцию из api-config.js
+            if (typeof getGeminiApiKey === 'function') {
+                const apiKey = getGeminiApiKey();
+                if (apiKey) {
+                    console.log('Background: API ключ найден в коде, длина:', apiKey.length);
+                    return [apiKey];
+                }
+            }
+            
+            console.log('Background: Пробуем ConfigManager как fallback...');
+            // Fallback к ConfigManager
             const apiKey = await this.configManager.getApiKey();
             
             if (apiKey && apiKey.trim()) {
                 console.log('Background: API ключ найден через ConfigManager, длина:', apiKey.length);
-                return [apiKey.trim()]; // Возвращаем как массив для совместимости
+                return [apiKey.trim()];
             }
             
-            console.log('Background: API ключ не найден');
+            console.log('Background: API ключ не найден нигде');
             return [];
             
         } catch (error) {
             console.error('Background: Ошибка получения API ключей:', error);
-            console.error('Background: Стек ошибки:', error.stack);
             return [];
         }
     }

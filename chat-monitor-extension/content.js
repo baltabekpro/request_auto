@@ -441,14 +441,23 @@
                 console.log('Content: Кнопка исправления нажата');
                 
                 try {
-                    // Сначала получаем API ключ
-                    const apiKeyResponse = await chrome.runtime.sendMessage({ type: 'GET_API_KEY' });
-                    const apiKey = apiKeyResponse?.apiKey;
+                    // Сначала пробуем получить API ключ из кода
+                    let apiKey = null;
                     
-                    console.log('Content: API ключ получен:', apiKey ? 'да' : 'нет');
+                    if (typeof getGeminiApiKey === 'function') {
+                        apiKey = getGeminiApiKey();
+                        console.log('Content: API ключ из кода:', apiKey ? 'найден' : 'не найден');
+                    }
+                    
+                    // Если в коде нет, пробуем через runtime
+                    if (!apiKey) {
+                        const apiKeyResponse = await chrome.runtime.sendMessage({ type: 'GET_API_KEY' });
+                        apiKey = apiKeyResponse?.apiKey;
+                        console.log('Content: API ключ из runtime:', apiKey ? 'найден' : 'не найден');
+                    }
                     
                     if (!apiKey) {
-                        alert('Сначала настройте Gemini API ключ в панели расширения');
+                        alert('❌ API ключ не найден!\n\nВы можете:\n1. Настроить ключ в панели расширения\n2. Или отредактировать файл api-config.js');
                         return;
                     }
                     
