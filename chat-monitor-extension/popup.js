@@ -246,39 +246,45 @@ class ChatMonitorPopup {
         }
         
         try {
-            this.showApiStatus('Проверка API ключа...', '');
+            this.showApiStatus('Проверка API ключа Gemini...', '');
             
-            // Простой тест запрос к API (можно адаптировать под конкретный API)
-            const testPrompt = 'Проверка подключения';
+            // Простой тест запрос к Gemini API
+            const testPrompt = 'Привет! Это тест подключения.';
             const response = await this.makeApiRequest(apiKey, testPrompt);
             
             if (response && response.success) {
-                this.showApiStatus('API ключ работает корректно', 'success');
+                // Проверяем, что ответ содержит ожидаемые поля
+                if (response.data && response.data.candidates) {
+                    this.showApiStatus('✅ API ключ Gemini работает корректно', 'success');
+                } else {
+                    this.showApiStatus('⚠️ API ключ работает, но ответ имеет неожиданный формат', 'error');
+                }
             } else {
-                this.showApiStatus('Ошибка: неверный API ключ или проблема с сервисом', 'error');
+                const errorMsg = response.error || 'Неизвестная ошибка';
+                this.showApiStatus(`❌ Ошибка: ${errorMsg}`, 'error');
             }
             
         } catch (error) {
-            console.error('Ошибка тестирования API:', error);
-            this.showApiStatus('Ошибка подключения к API сервису', 'error');
+            console.error('Ошибка тестирования Gemini API:', error);
+            this.showApiStatus('❌ Ошибка подключения к Gemini API', 'error');
         }
     }
     
     async makeApiRequest(apiKey, prompt) {
-        // Здесь реализуется запрос к конкретному API (OpenAI, Claude, etc.)
-        // Пример для OpenAI API:
+        // Запрос к Google Gemini API
         
         try {
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: 'gpt-3.5-turbo',
-                    messages: [{ role: 'user', content: prompt }],
-                    max_tokens: 10
+                    contents: [{
+                        parts: [{
+                            text: prompt
+                        }]
+                    }]
                 })
             });
             
@@ -286,7 +292,11 @@ class ChatMonitorPopup {
                 const data = await response.json();
                 return { success: true, data };
             } else {
-                return { success: false, error: response.statusText };
+                const errorData = await response.json().catch(() => ({}));
+                return { 
+                    success: false, 
+                    error: errorData.error?.message || response.statusText 
+                };
             }
         } catch (error) {
             return { success: false, error: error.message };

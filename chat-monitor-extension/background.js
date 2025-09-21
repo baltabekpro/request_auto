@@ -277,10 +277,10 @@ class ChatMonitorBackground {
             if (!apiKeys.length) {
                 await chrome.tabs.sendMessage(tabId, { 
                     action: 'showNotification', 
-                    message: 'Необходимо настроить API ключи для исправления текста', 
+                    message: 'Необходимо настроить Gemini API ключ в панели расширения', 
                     type: 'error' 
                 });
-                return { success: false, error: 'No API keys found' };
+                return { success: false, error: 'No Gemini API key found' };
             }
 
             // Получаем весь текст из активного элемента
@@ -347,36 +347,66 @@ class ChatMonitorBackground {
         }
     }
     
-    // Получение API ключей (заглушка для демонстрации)
+    // Получение API ключей
     async getApiKeys() {
         try {
-            const result = await chrome.storage.sync.get(['textCorrectionApiKeys']);
-            return result.textCorrectionApiKeys || [];
+            // Получаем API ключ из нового хранилища
+            const result = await chrome.storage.sync.get(['apiKey']);
+            if (result.apiKey) {
+                return [result.apiKey]; // Возвращаем как массив для совместимости
+            }
+            
+            // Фоллбэк для старого формата хранения
+            const oldResult = await chrome.storage.sync.get(['textCorrectionApiKeys']);
+            return oldResult.textCorrectionApiKeys || [];
         } catch (error) {
             console.error('Ошибка получения API ключей:', error);
             return [];
         }
     }
     
-    // Исправление текста с помощью ИИ (упрощенная версия)
+    // Исправление текста с помощью Gemini AI
     async correctTextWithAI(text, apiKey) {
         try {
-            // Здесь должен быть реальный вызов к API ИИ
-            // Для демонстрации возвращаем простую обработку
+            // Запрос к Google Gemini API для исправления текста
+            const prompt = `Исправь грамматические ошибки, пунктуацию и стиль в следующем тексте. Верни только исправленный текст без дополнительных комментариев:
+
+${text}`;
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: prompt
+                        }]
+                    }],
+                    generationConfig: {
+                        maxOutputTokens: 2048,
+                        temperature: 0.1
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
             
-            // Простая обработка: убираем лишние пробелы и исправляем некоторые ошибки
-            let correctedText = text
-                .replace(/\s+/g, ' ') // убираем множественные пробелы
-                .replace(/\s+([.,:;!?])/g, '$1') // убираем пробелы перед знаками препинания
-                .replace(/([.!?])\s*([а-яё])/gi, '$1 $2') // добавляем пробел после точки
-                .trim();
+            if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+                const correctedText = data.candidates[0].content.parts[0].text.trim();
+                return correctedText;
+            } else {
+                throw new Error('Неожиданный формат ответа от Gemini API');
+            }
             
-            // Имитация задержки API
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            return correctedText;
         } catch (error) {
-            console.error('Ошибка вызова ИИ:', error);
+            console.error('Ошибка вызова Gemini API:', error);
             return `Ошибка API: ${error.message}`;
         }
     }
