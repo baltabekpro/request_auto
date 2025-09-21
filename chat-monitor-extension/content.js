@@ -63,47 +63,78 @@
         // Убираем все нецифровые символы
         const digits = phone.replace(/\D/g, '');
         
+        // Казахстанские коды операторов
+        const kazakhCodes = ['707', '700', '747', '708', '727', '775', '778', '706'];
+        
+        let normalizedDigits = '';
+        
         // Проверяем разные форматы казахстанских номеров
         if (digits.length === 10 && digits.startsWith('7')) {
-            // 7007077777 -> +7 700 707 77 77
-            return '+7 ' + digits.substring(1, 4) + ' ' + digits.substring(4, 7) + ' ' + digits.substring(7, 9) + ' ' + digits.substring(9, 11);
+            // 7007077777 -> 7007077777
+            normalizedDigits = digits.substring(1); // убираем первую 7
         } else if (digits.length === 11 && digits.startsWith('87')) {
-            // 87007077777 -> +7 700 707 77 77
-            return '+7 ' + digits.substring(2, 5) + ' ' + digits.substring(5, 8) + ' ' + digits.substring(8, 10) + ' ' + digits.substring(10, 12);
+            // 87007077777 -> 7007077777
+            normalizedDigits = digits.substring(2); // убираем 87
         } else if (digits.length === 11 && digits.startsWith('77')) {
-            // 77007077777 -> +7 700 707 77 77
-            return '+7 ' + digits.substring(2, 5) + ' ' + digits.substring(5, 8) + ' ' + digits.substring(8, 10) + ' ' + digits.substring(10, 12);
+            // 77007077777 -> 7007077777
+            normalizedDigits = digits.substring(2); // убираем 77
         } else if (digits.length === 10 && !digits.startsWith('7')) {
-            // 7007077777 (без первой 7) -> +7 700 707 77 77
-            return '+7 ' + digits.substring(0, 3) + ' ' + digits.substring(3, 6) + ' ' + digits.substring(6, 8) + ' ' + digits.substring(8, 10);
+            // 7007077777 (без первой 7) -> 7007077777
+            normalizedDigits = digits;
+        } else if (digits.length === 12 && digits.startsWith('7')) {
+            // Полный формат с +7 -> убираем первую 7
+            normalizedDigits = digits.substring(1);
+        } else if (digits.length >= 10) {
+            // Берем последние 10 цифр
+            normalizedDigits = digits.substring(digits.length - 10);
+        } else {
+            // Если меньше 10 цифр, возвращаем как есть
+            return phone;
         }
         
-        // Если не подходит под стандартные форматы, возвращаем как есть с +7
-        if (digits.length >= 10) {
-            return '+7 ' + digits.substring(digits.length - 10, digits.length - 7) + ' ' + 
-                   digits.substring(digits.length - 7, digits.length - 4) + ' ' + 
-                   digits.substring(digits.length - 4, digits.length - 2) + ' ' + 
-                   digits.substring(digits.length - 2);
+        // Проверяем, что номер начинается с одного из казахстанских кодов
+        const startsWithKazakhCode = kazakhCodes.some(code => normalizedDigits.startsWith(code));
+        
+        if (!startsWithKazakhCode || normalizedDigits.length !== 10) {
+            return phone; // Возвращаем исходный, если не казахстанский номер
         }
         
-        return phone; // Возвращаем исходный, если не получилось распознать
+        // Форматируем в требуемый вид: 700 707 77 77
+        return normalizedDigits.substring(0, 3) + ' ' + 
+               normalizedDigits.substring(3, 6) + ' ' + 
+               normalizedDigits.substring(6, 8) + ' ' + 
+               normalizedDigits.substring(8, 10);
     }
     
     function findPhoneNumbers(text) {
         const phoneNumbers = new Set(); // Используем Set для избежания дубликатов
         
+        // Казахстанские коды операторов
+        const kazakhCodes = ['707', '700', '747', '708', '727', '775', '778', '706'];
+        
+        // Создаем паттерн для казахстанских кодов
+        const kazakhCodesPattern = kazakhCodes.join('|');
+        
         // Различные паттерны для поиска номеров телефонов
         const phonePatterns = [
-            // Казахстанские номера с кодом +7 или 8
-            /\+?7\s*[\-\(\)]?\s*[0-9]{3}\s*[\-\(\)]?\s*[0-9]{3}\s*[\-\(\)]?\s*[0-9]{2}\s*[\-\(\)]?\s*[0-9]{2}/g,
-            /8\s*[\-\(\)]?\s*[0-9]{3}\s*[\-\(\)]?\s*[0-9]{3}\s*[\-\(\)]?\s*[0-9]{2}\s*[\-\(\)]?\s*[0-9]{2}/g,
-            // Простые форматы без разделителей
-            /\b[78][0-9]{10}\b/g,
-            /\b[0-9]{10}\b/g,
-            // С различными разделителями
-            /\b[78][\s\-\(\)]*[0-9]{3}[\s\-\(\)]*[0-9]{3}[\s\-\(\)]*[0-9]{2}[\s\-\(\)]*[0-9]{2}\b/g,
-            // Международный формат
-            /\+7[\s\-\(\)]*[0-9]{3}[\s\-\(\)]*[0-9]{3}[\s\-\(\)]*[0-9]{2}[\s\-\(\)]*[0-9]{2}/g
+            // Номера начинающиеся с 7 (без +): 7007077777
+            new RegExp(`\\b7(${kazakhCodesPattern})\\d{7}\\b`, 'g'),
+            // Номера начинающиеся с 8 (с казахстанским кодом): 87007077777
+            new RegExp(`\\b8(${kazakhCodesPattern})\\d{7}\\b`, 'g'),
+            // Номера с +7: +7 700 707 77 77 или +77007077777
+            new RegExp(`\\+7\\s*(${kazakhCodesPattern})\\s*\\d{3}\\s*\\d{2}\\s*\\d{2}`, 'g'),
+            // Номера с разделителями: 8 700 707 77 77, 7 700 707 77 77
+            new RegExp(`\\b[78]\\s+(${kazakhCodesPattern})\\s+\\d{3}\\s+\\d{2}\\s+\\d{2}\\b`, 'g'),
+            // Номера с дефисами: 8-700-707-77-77
+            new RegExp(`\\b[78]-(${kazakhCodesPattern})-\\d{3}-\\d{2}-\\d{2}\\b`, 'g'),
+            // Номера с точками: 8.700.707.77.77
+            new RegExp(`\\b[78]\\.(${kazakhCodesPattern})\\.\\d{3}\\.\\d{2}\\.\\d{2}\\b`, 'g'),
+            // Номера в скобках: 8(700)707-77-77
+            new RegExp(`\\b[78]\\(?(${kazakhCodesPattern})\\)?[\\s\\-]?\\d{3}[\\s\\-]?\\d{2}[\\s\\-]?\\d{2}\\b`, 'g'),
+            // Просто 10-значные номера начинающиеся с казахстанских кодов (без 7 или 8)
+            new RegExp(`\\b(${kazakhCodesPattern})\\d{7}\\b`, 'g'),
+            // Номера с различными комбинациями разделителей
+            new RegExp(`\\b[78][\\s\\-\\(\\)\\.]*?(${kazakhCodesPattern})[\\s\\-\\(\\)\\.]*?\\d{3}[\\s\\-\\(\\)\\.]*?\\d{2}[\\s\\-\\(\\)\\.]*?\\d{2}\\b`, 'g'),
         ];
         
         phonePatterns.forEach(pattern => {
@@ -113,9 +144,24 @@
                     const cleaned = match.trim();
                     // Проверяем, что это действительно похоже на номер телефона
                     const digits = cleaned.replace(/\D/g, '');
+                    
+                    // Проверяем длину и наличие казахстанского кода
                     if (digits.length >= 10 && digits.length <= 12) {
-                        const normalized = normalizePhoneNumber(cleaned);
-                        phoneNumbers.add(normalized);
+                        // Проверяем, содержит ли номер один из казахстанских кодов
+                        const hasKazakhCode = kazakhCodes.some(code => {
+                            if (digits.startsWith('7' + code) || digits.startsWith('8' + code)) {
+                                return true;
+                            }
+                            if (digits.startsWith(code) && digits.length === 10) {
+                                return true;
+                            }
+                            return false;
+                        });
+                        
+                        if (hasKazakhCode) {
+                            const normalized = normalizePhoneNumber(cleaned);
+                            phoneNumbers.add(normalized);
+                        }
                     }
                 });
             }
@@ -156,17 +202,20 @@
         return Array.from(phones);
     }
     
-    function copyToClipboard(text) {
+    function copyToClipboard(displayNumber) {
+        // Убираем пробелы для копирования (из формата "700 707 77 77" в "7007077777")
+        const numberWithoutSpaces = displayNumber.replace(/\s/g, '');
+        
         // Используем современный Clipboard API если доступен
         if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText(text).then(() => {
-                showNotification('📱 Номер скопирован: ' + text, 'success');
+            navigator.clipboard.writeText(numberWithoutSpaces).then(() => {
+                showNotification('📱 Номер скопирован: ' + numberWithoutSpaces, 'success');
             }).catch(err => {
                 console.error('Ошибка копирования:', err);
-                fallbackCopyToClipboard(text);
+                fallbackCopyToClipboard(numberWithoutSpaces);
             });
         } else {
-            fallbackCopyToClipboard(text);
+            fallbackCopyToClipboard(numberWithoutSpaces);
         }
     }
     
@@ -738,27 +787,38 @@
         const numbersContainer = document.createElement('div');
         numbersContainer.style.cssText = `
             display: flex;
-            flex-wrap: wrap;
+            flex-direction: column;
             gap: 5px;
         `;
         
-        // Добавляем каждый номер как кликабельный элемент
-        phoneNumbers.forEach(phone => {
+        // Добавляем каждый номер как строку с номером и кнопкой "Исправить"
+        phoneNumbers.forEach((phone, index) => {
+            const phoneRow = document.createElement('div');
+            phoneRow.style.cssText = `
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 3px 0;
+            `;
+            
+            // Создаем элемент с номером (кликабельный для копирования)
             const phoneElement = document.createElement('span');
             phoneElement.textContent = phone;
             phoneElement.style.cssText = `
                 background-color: #e8f4fd;
                 border: 1px solid #0066cc;
                 border-radius: 3px;
-                padding: 3px 6px;
+                padding: 4px 8px;
                 cursor: pointer;
                 color: #0066cc;
                 font-family: monospace;
                 white-space: nowrap;
-                transition: background-color 0.2s;
+                transition: all 0.2s;
+                flex: 1;
+                min-width: 120px;
             `;
             
-            // Добавляем hover эффект
+            // Добавляем hover эффект для номера
             phoneElement.addEventListener('mouseenter', function() {
                 this.style.backgroundColor = '#d4edda';
                 this.style.borderColor = '#28a745';
@@ -771,7 +831,7 @@
                 this.style.color = '#0066cc';
             });
             
-            // Добавляем обработчик клика для копирования
+            // Добавляем обработчик клика для копирования номера
             phoneElement.addEventListener('click', function() {
                 copyToClipboard(phone);
                 
@@ -787,10 +847,45 @@
                 }, 200);
             });
             
-            // Добавляем tooltip
-            phoneElement.title = 'Нажмите, чтобы скопировать номер';
+            // Добавляем tooltip для номера
+            phoneElement.title = 'Нажмите, чтобы скопировать номер без пробелов';
             
-            numbersContainer.appendChild(phoneElement);
+            // Создаем кнопку "Исправить" для каждого номера
+            const correctPhoneButton = document.createElement('button');
+            correctPhoneButton.textContent = 'Исправить';
+            correctPhoneButton.style.cssText = `
+                background-color: #ff9800;
+                color: white;
+                border: none;
+                border-radius: 3px;
+                padding: 4px 8px;
+                cursor: pointer;
+                font-size: 11px;
+                white-space: nowrap;
+                transition: background-color 0.2s;
+            `;
+            
+            // Добавляем hover эффект для кнопки исправления
+            correctPhoneButton.addEventListener('mouseenter', function() {
+                this.style.backgroundColor = '#f57c00';
+            });
+            
+            correctPhoneButton.addEventListener('mouseleave', function() {
+                this.style.backgroundColor = '#ff9800';
+            });
+            
+            // Добавляем обработчик клика для исправления номера в тексте
+            correctPhoneButton.addEventListener('click', function() {
+                correctPhoneInText(phone);
+            });
+            
+            correctPhoneButton.title = 'Исправить все неправильные форматы этого номера в тексте';
+            
+            // Добавляем номер и кнопку в строку
+            phoneRow.appendChild(phoneElement);
+            phoneRow.appendChild(correctPhoneButton);
+            
+            numbersContainer.appendChild(phoneRow);
         });
         
         phoneBlock.appendChild(numbersContainer);
@@ -799,6 +894,118 @@
         correctButton.parentNode.insertBefore(phoneBlock, correctButton.nextSibling);
         
         console.log('Content: Отображено номеров телефонов:', phoneNumbers.length);
+    }
+    
+    // Функция для исправления конкретного номера в тексте
+    function correctPhoneInText(normalizedPhone) {
+        console.log('Исправление номера в тексте:', normalizedPhone);
+        
+        // Получаем текст из активного элемента
+        const currentText = getAllTextFromActiveElement();
+        if (!currentText) {
+            showNotification('❌ Не найден текст для исправления', 'error');
+            return;
+        }
+        
+        // Убираем пробелы из нормализованного номера для поиска
+        const normalizedDigits = normalizedPhone.replace(/\s/g, '');
+        
+        // Создаем различные варианты как может быть записан этот номер
+        const phoneVariants = generatePhoneVariants(normalizedDigits);
+        
+        let correctedText = currentText;
+        let correctionsMade = 0;
+        
+        // Заменяем все найденные варианты на правильный формат
+        phoneVariants.forEach(variant => {
+            const regex = new RegExp(variant.pattern, 'gi');
+            const matches = correctedText.match(regex);
+            if (matches) {
+                correctionsMade += matches.length;
+                correctedText = correctedText.replace(regex, normalizedPhone);
+            }
+        });
+        
+        if (correctionsMade > 0) {
+            // Заменяем текст в активном элементе
+            const success = replaceAllTextInActiveElement(correctedText);
+            if (success) {
+                showNotification(`✅ Исправлено ${correctionsMade} вхождений номера ${normalizedPhone}`, 'success');
+            } else {
+                showNotification('❌ Не удалось заменить текст', 'error');
+            }
+        } else {
+            showNotification(`ℹ️ Неправильные форматы номера ${normalizedPhone} не найдены`, 'info');
+        }
+    }
+    
+    // Функция для генерации различных вариантов записи номера
+    function generatePhoneVariants(normalizedDigits) {
+        // normalizedDigits - это номер без пробелов, например "7007077777"
+        const variants = [];
+        
+        // Добавляем экранирование для регулярных выражений
+        const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        
+        // Формат: 7007077777
+        variants.push({
+            pattern: escapeRegex(normalizedDigits),
+            description: 'Без разделителей'
+        });
+        
+        // Формат: 87007077777 (с 8 в начале)
+        variants.push({
+            pattern: escapeRegex('8' + normalizedDigits),
+            description: 'С 8 в начале'
+        });
+        
+        // Формат: +77007077777
+        variants.push({
+            pattern: escapeRegex('+7' + normalizedDigits),
+            description: 'С +7'
+        });
+        
+        // Формат: 8 700 707 77 77 (с пробелами)
+        const withSpaces = '8\\s*' + normalizedDigits.substring(0,3) + '\\s*' + 
+                          normalizedDigits.substring(3,6) + '\\s*' + 
+                          normalizedDigits.substring(6,8) + '\\s*' + 
+                          normalizedDigits.substring(8,10);
+        variants.push({
+            pattern: withSpaces,
+            description: 'С пробелами и 8'
+        });
+        
+        // Формат: 7 700 707 77 77 (с пробелами)
+        const withSpaces7 = '7\\s*' + normalizedDigits.substring(0,3) + '\\s*' + 
+                           normalizedDigits.substring(3,6) + '\\s*' + 
+                           normalizedDigits.substring(6,8) + '\\s*' + 
+                           normalizedDigits.substring(8,10);
+        variants.push({
+            pattern: withSpaces7,
+            description: 'С пробелами и 7'
+        });
+        
+        // Формат: 8-700-707-77-77 (с дефисами)
+        const withDashes = '8\\-' + normalizedDigits.substring(0,3) + '\\-' + 
+                          normalizedDigits.substring(3,6) + '\\-' + 
+                          normalizedDigits.substring(6,8) + '\\-' + 
+                          normalizedDigits.substring(8,10);
+        variants.push({
+            pattern: withDashes,
+            description: 'С дефисами'
+        });
+        
+        // Формат: 8(700)707-77-77 (комбинированный)
+        const mixed = '8\\(' + normalizedDigits.substring(0,3) + '\\)' + 
+                     normalizedDigits.substring(3,6) + '\\-' + 
+                     normalizedDigits.substring(6,8) + '\\-' + 
+                     normalizedDigits.substring(8,10);
+        variants.push({
+            pattern: mixed,
+            description: 'Смешанный формат'
+        });
+        
+        return variants;
     }
     
     // Пытаемся добавить кнопку при загрузке
@@ -812,21 +1019,44 @@
     
     // Наблюдаем за изменениями DOM для добавления кнопки и обновления номеров
     let updateTimeout = null;
-    const buttonObserver = new MutationObserver(() => {
+    const buttonObserver = new MutationObserver((mutations) => {
         addCorrectButton();
         
+        // Проверяем, есть ли изменения в содержимом чата
+        let shouldUpdatePhones = false;
+        
+        mutations.forEach(mutation => {
+            // Если добавились/удалились узлы
+            if (mutation.type === 'childList') {
+                shouldUpdatePhones = true;
+            }
+            // Если изменился текст
+            if (mutation.type === 'characterData') {
+                shouldUpdatePhones = true;
+            }
+            // Если изменились атрибуты (например, при смене активного чата)
+            if (mutation.type === 'attributes') {
+                shouldUpdatePhones = true;
+            }
+        });
+        
         // Обновляем номера телефонов с небольшой задержкой, чтобы избежать частых обновлений
-        if (updateTimeout) {
-            clearTimeout(updateTimeout);
+        if (shouldUpdatePhones) {
+            if (updateTimeout) {
+                clearTimeout(updateTimeout);
+            }
+            updateTimeout = setTimeout(() => {
+                updatePhoneNumbersDisplay();
+            }, 500);
         }
-        updateTimeout = setTimeout(() => {
-            updatePhoneNumbersDisplay();
-        }, 500);
     });
     
     buttonObserver.observe(document.body, {
         childList: true,
-        subtree: true
+        subtree: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: ['class', 'id'] // Отслеживаем изменения классов и ID
     });
     
     // Дополнительно отслеживаем изменения URL для обновления при смене чата
@@ -840,6 +1070,35 @@
             }, 1000);
         }
     }, 1000);
+    
+    // Отслеживаем изменения в полях ввода для обновления номеров при вводе текста
+    document.addEventListener('input', function(event) {
+        const target = event.target;
+        if (target && (target.tagName === 'TEXTAREA' || 
+                      (target.tagName === 'INPUT' && target.type === 'text') ||
+                      target.contentEditable === 'true')) {
+            // Обновляем номера при изменении текста в полях ввода
+            if (updateTimeout) {
+                clearTimeout(updateTimeout);
+            }
+            updateTimeout = setTimeout(() => {
+                updatePhoneNumbersDisplay();
+            }, 1000); // Увеличиваем задержку для полей ввода
+        }
+    });
+    
+    // Отслеживаем изменения фокуса для обновления при переключении между элементами
+    document.addEventListener('focusin', function(event) {
+        const target = event.target;
+        if (target && (target.tagName === 'TEXTAREA' || 
+                      (target.tagName === 'INPUT' && target.type === 'text') ||
+                      target.contentEditable === 'true')) {
+            // Обновляем номера при фокусе на текстовых полях
+            setTimeout(() => {
+                updatePhoneNumbersDisplay();
+            }, 300);
+        }
+    });
     
     // Отслеживаем изменения в истории браузера (для SPA)
     window.addEventListener('popstate', () => {

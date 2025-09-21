@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест поиска номеров телефонов</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        .test-area {
+            background-color: #f5f5f5;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-templates {
+            background-color: #007bff;
+            color: white;
+        }
+        .test-phones {
+            background-color: #e8f4fd;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border: 1px solid #0066cc;
+        }
+        .phone-number {
+            display: inline-block;
+            background-color: #fff;
+            padding: 5px 10px;
+            margin: 2px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>Тест функции поиска и исправления номеров телефонов</h1>
+    
+    <div class="test-area">
+        <h2>Тестовые номера в различных форматах:</h2>
+        <div class="test-phones">
+            <p><strong>Казахстанские номера в разных форматах:</strong></p>
+            <span class="phone-number">7007077777</span>
+            <span class="phone-number">87007077777</span>
+            <span class="phone-number">8 700 707 77 77</span>
+            <span class="phone-number">7 700 707 77 77</span>
+            <span class="phone-number">8-700-707-77-77</span>
+            <span class="phone-number">8(700)707-77-77</span>
+            <span class="phone-number">+7 700 707 77 77</span>
+            <span class="phone-number">+77007077777</span>
+            <br><br>
+            <span class="phone-number">8747123456</span>
+            <span class="phone-number">7 747 123 45 67</span>
+            <span class="phone-number">8-708-999-88-77</span>
+            <span class="phone-number">+7 727 555 44 33</span>
+            <span class="phone-number">8(775)222.11.00</span>
+            <span class="phone-number">778.333.22.11</span>
+            <span class="phone-number">7064445566</span>
+        </div>
+    </div>
+    
+    <div class="test-area">
+        <h2>Поле для тестирования исправления:</h2>
+        <p>Вставьте номера телефонов в поле ниже и используйте кнопку "Исправить" из расширения:</p>
+        <textarea placeholder="Вставьте сюда номера телефонов в различных форматах для тестирования функции исправления...
+
+Примеры для вставки:
+Позвоните по номеру 8 700 707 77 77 или 87007077777
+Также доступен номер 8-747-123-45-67
+Контакт: +7 708 999 88 77
+Мой номер: 7775551234
+
+Смешанный текст: Звоните нам 8(700)123-45-67 или пишите на email@test.com, а также 7 727 555 44 33 для экстренных случаев."></textarea>
+        
+        <!-- Кнопка "Шаблоны" для имитации интерфейса чата -->
+        <button class="btn-templates" onclick="popup_templates()">Шаблоны</button>
+    </div>
+    
+    <script>
+        // Имитируем функцию popup_templates для тестирования
+        function popup_templates() {
+            alert('Это имитация кнопки "Шаблоны". Расширение должно добавить кнопку "Исправить" рядом с этой кнопкой.');
+        }
+        
+        // Загружаем расширение только после загрузки страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Страница загружена. Расширение должно начать работу.');
+        });
+    </script>
+</body>
+</html>
